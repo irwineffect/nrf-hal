@@ -12,6 +12,11 @@ pub use embedded_hal::{
 };
 pub use spi0::frequency::FREQUENCY_A as Frequency;
 
+pub enum BitOrder {
+    MsbFirst,
+    LsbFirst,
+}
+
 /// Interface to a SPI instance.
 pub struct Spi<T>(T);
 
@@ -69,7 +74,7 @@ impl<T> Spi<T>
 where
     T: Instance,
 {
-    pub fn new(spi: T, pins: Pins, frequency: Frequency, mode: Mode) -> Self {
+    pub fn new(spi: T, pins: Pins, frequency: Frequency, mode: Mode, bitorder: BitOrder) -> Self {
         // Select pins.
         let mut spi = spi;
         Self::set_pins(&mut spi, pins);
@@ -78,11 +83,18 @@ where
         spi.enable.write(|w| w.enable().enabled());
 
         // Configure mode.
-        spi.config.write(|w| match mode {
-            MODE_0 => w.order().msb_first().cpha().leading().cpol().active_high(),
-            MODE_1 => w.order().msb_first().cpha().trailing().cpol().active_high(),
-            MODE_2 => w.order().msb_first().cpha().leading().cpol().active_low(),
-            MODE_3 => w.order().msb_first().cpha().trailing().cpol().active_low(),
+        spi.config.write(|w| {
+            match bitorder {
+                BitOrder::MsbFirst=> w.order().msb_first(),
+                BitOrder::LsbFirst=> w.order().lsb_first(),
+            };
+            match mode {
+                MODE_0 => w.cpha().leading().cpol().active_high(),
+                MODE_1 => w.cpha().trailing().cpol().active_high(),
+                MODE_2 => w.cpha().leading().cpol().active_low(),
+                MODE_3 => w.cpha().trailing().cpol().active_low(),
+            };
+            w
         });
 
         // Configure frequency.
