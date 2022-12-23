@@ -37,6 +37,11 @@ use crate::target_constants::{EASY_DMA_SIZE, FORCE_COPY_BUFFER_SIZE};
 use crate::{slice_in_ram, slice_in_ram_or, DmaSlice};
 use embedded_hal::digital::v2::OutputPin;
 
+pub enum BitOrder {
+    MsbFirst,
+    LsbFirst,
+}
+
 /// Interface to a SPIM instance.
 ///
 /// This is a very basic interface that comes with the following limitations:
@@ -104,7 +109,7 @@ where
         self.do_spi_dma_transfer(DmaSlice::from_slice(&buf[..chunk.len()]), DmaSlice::null())
     }
 
-    pub fn new(spim: T, pins: Pins, frequency: Frequency, mode: Mode, orc: u8) -> Self {
+    pub fn new(spim: T, pins: Pins, frequency: Frequency, mode: Mode, orc: u8, bitorder: BitOrder) -> Self {
         // Select pins.
         spim.psel.sck.write(|w| {
             unsafe { w.bits(pins.sck.psel_bits()) };
@@ -131,21 +136,21 @@ where
 
         // Configure mode.
         spim.config.write(|w| {
+            match bitorder {
+                BitOrder::MsbFirst=> w.order().msb_first(),
+                BitOrder::LsbFirst=> w.order().lsb_first(),
+            };
             // Can't match on `mode` due to embedded-hal, see https://github.com/rust-embedded/embedded-hal/pull/126
             if mode == MODE_0 {
-                w.order().msb_first();
                 w.cpol().active_high();
                 w.cpha().leading();
             } else if mode == MODE_1 {
-                w.order().msb_first();
                 w.cpol().active_high();
                 w.cpha().trailing();
             } else if mode == MODE_2 {
-                w.order().msb_first();
                 w.cpol().active_low();
                 w.cpha().leading();
             } else {
-                w.order().msb_first();
                 w.cpol().active_low();
                 w.cpha().trailing();
             }
