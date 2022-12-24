@@ -305,12 +305,12 @@ where
     /// it is allowed to perform transactions where `tx_buffer.len() != rx_buffer.len()`.
     /// If this occurs, extra incoming bytes will be discarded, OR extra outgoing bytes
     /// will be filled with the `orc` value.
-    pub fn transfer_split_uneven(
+    pub fn transfer_split_uneven<O: OutputPin>(
         &mut self,
-        chip_select: &mut Pin<Output<PushPull>>,
+        chip_select: &mut O,
         tx_buffer: &[u8],
         rx_buffer: &mut [u8],
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error> where <O as OutputPin>::Error: core::fmt::Debug {
         // NOTE: RAM slice check for `rx_buffer` is not necessary, as a mutable
         // slice can only be built from data located in RAM.
         slice_in_ram_or(tx_buffer, Error::DMABufferNotInDataMemory)?;
@@ -360,11 +360,11 @@ where
     /// This method uses the provided chip select pin to initiate the
     /// transaction, then transmits all bytes in `tx_buffer`. All incoming
     /// bytes are discarded.
-    pub fn write(
+    pub fn write<O: OutputPin>(
         &mut self,
-        chip_select: &mut Pin<Output<PushPull>>,
+        chip_select: &mut O,
         tx_buffer: &[u8],
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error> where <O as OutputPin>::Error: core::fmt::Debug {
         slice_in_ram_or(tx_buffer, Error::DMABufferNotInDataMemory)?;
         self.transfer_split_uneven(chip_select, tx_buffer, &mut [0u8; 0])
     }
