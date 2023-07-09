@@ -11,6 +11,8 @@ use crate::pac::{rtc0, Interrupt, NVIC, RTC0, RTC1};
 #[cfg(any(feature = "52832", feature = "52833", feature = "52840"))]
 use crate::pac::RTC2;
 
+use crate::pac::rtc0::EVENTS_OVRFLW;
+
 /// An opaque high level interface to an RTC peripheral.
 pub struct Rtc<T> {
     periph: T,
@@ -208,6 +210,13 @@ where
     /// to the given RTC peripheral.
     pub fn release(self) -> T {
         self.periph
+    }
+
+    /// Returns reference to the RTC `OVRFLW` event endpoint for PPI.
+    /// Generated when the RTC counter overflows.
+    #[inline(always)]
+    pub fn event_overflow(&self) -> &EVENTS_OVRFLW {
+        &self.periph.events_ovrflw
     }
 }
 
