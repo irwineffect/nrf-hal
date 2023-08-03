@@ -48,6 +48,7 @@ use core::marker::PhantomData;
 
 pub struct OneShot;
 pub struct Periodic;
+pub struct Counter;
 
 /// Interface to a TIMER instance.
 ///
@@ -81,6 +82,18 @@ where
         timer.set_periodic();
 
         Timer::<T, Periodic>(timer, PhantomData)
+    }
+}
+
+
+impl<T> Timer<T, Counter>
+where
+    T: Instance,
+{
+    pub fn counter(timer: T) -> Timer<T, Counter> {
+        timer.set_counter_mode();
+
+        Timer::<T, Counter>(timer, PhantomData)
     }
 }
 
@@ -442,6 +455,17 @@ pub trait Instance: sealed::Sealed {
         self.as_timer0().prescaler.write(
             |w| unsafe { w.prescaler().bits(4) }, // 1 MHz
         );
+        self.as_timer0().bitmode.write(|w| w.bitmode()._32bit());
+    }
+
+    fn set_counter_mode(&self) {
+        self.as_timer0().shorts.write(|w| {
+            w
+             .compare0_clear().disabled()
+             .compare0_stop().disabled()
+        });
+
+        self.as_timer0().mode.write(|w| w.mode().counter());
         self.as_timer0().bitmode.write(|w| w.bitmode()._32bit());
     }
 }
