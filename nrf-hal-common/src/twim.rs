@@ -392,6 +392,57 @@ where
             },
         )
     }
+
+    /// Probe the bus to see if a I2C slave ACKs the specified address.
+    ///
+    /// This method can be used to determine if a particular I2C slave device is
+    /// present on the bus (assuming the device will acknowledge a write
+    /// request), without actually attempting to write any data to the device.
+    ///
+    /// This works by causing the I2C master to issue a write request to the
+    /// specified address, and a stop condition immediately after the (n)ack
+    /// bit is clocked in.
+    pub fn probe(&mut self, address: u8) -> Result<(), Error> {
+        self.0
+            .address
+            .write(|w| unsafe { w.address().bits(address) });
+
+            self.0.txd.maxcnt.write(|w|
+                // 0 is a valid value for maxcnt, and we are ok to not initialize
+                // txd.ptr since maxcnt is 0, no data is being read by the DMA.
+                unsafe { w.maxcnt().bits(0) });
+
+        // Clear events
+        self.0.events_stopped.reset();
+        self.0.events_error.reset();
+        self.0.events_lasttx.reset();
+        self.clear_errorsrc();
+
+        // Start write operation.
+        self.0.tasks_starttx.write(|w|
+            // `1` is a valid value to write to task registers.
+            unsafe { w.bits(1) });
+
+        // Trigger stop task. This should cause the master to issue a stop
+        // condition on the bus after it has finished transmitting the slave
+        // device address and receiving the (n)ack bit.
+        self.0.tasks_stop.write(|w|
+            // `1` is a valid value to write to task registers. Datasheet
+            // indicates this task should be triggered at any time during
+            // transmission of the last byte. It is not explicitly clear if "the
+            // last byte" include the transmission of the slave
+            // address, but it appears to work.
+            unsafe {w.bits(1)}
+        );
+
+        self.wait();
+
+        // If the device did not acknowledge, expect to return
+        // Err(Error::AddressNack) here.
+        self.read_errorsrc()?;
+
+        Ok(())
+    }
 }
 
 impl<T> embedded_hal::blocking::i2c::Write for Twim<T>
